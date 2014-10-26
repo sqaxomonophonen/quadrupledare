@@ -16,16 +16,18 @@ void track_init_demo(struct track* track)
 	track->node_count = 4;
 
 	struct vec3 normal = {{0,1,0}};
+	struct vec3 normal2 = {{1,1,1}};
 
 	struct vec3 ps[4] = {
-		{{-10,0,-10}},
-		{{10,0,-10}},
-		{{10,5,10}},
-		{{-10,0,10}},
+		{{-10,5,-10}},
+		{{10,4,-10}},
+		{{10,15,10}},
+		{{-10,7,10}},
 	};
 
 	for (int i = 0; i < 4; i++) {
 		struct track_node* node = &track->nodes[i];
+		node->frame_tag = -1;
 		node->type = TRACK_BEZIER;
 		struct track_node_bezier* bezier = &node->bezier;
 		bezier->prev = (i-1)&3;
@@ -34,7 +36,7 @@ void track_init_demo(struct track* track)
 		for (int j = 0; j < 3; j++) {
 			struct track_point* p = &bezier->p[j];
 			p->width = 2;
-			vec3_copy(&p->normal, &normal);
+			vec3_copy(&p->normal, i == 0 ? &normal2 : &normal);
 		}
 	}
 

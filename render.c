@@ -11,17 +11,17 @@ static const char* road_shader_vertex_src =
 	"\n"
 	"attribute vec3 a_position;\n"
 	"attribute vec3 a_normal;\n"
-	//"attribute float a_material;\n"
+	"attribute float a_material;\n"
 	"\n"
 	"varying vec3 v_position;\n"
 	"varying vec3 v_normal;\n"
-	//"varying float v_material;\n"
+	"varying float v_material;\n"
 	"\n"
 	"void main()\n"
 	"{\n"
 	"	v_position = a_position;\n"
 	"	v_normal = a_normal;\n"
-	//"	v_material = a_material;\n"
+	"	v_material = a_material;\n"
 	"	gl_Position = u_projection * u_view * vec4(a_position, 1);\n"
 	"}\n";
 
@@ -30,12 +30,16 @@ static const char* road_shader_fragment_src =
 	"\n"
 	"varying vec3 v_position;\n"
 	"varying vec3 v_normal;\n"
-	//"varying float v_material;\n"
+	"varying float v_material;\n"
 	"\n"
 	"void main(void)\n"
 	"{\n"
 	"	float l = abs(dot(v_normal, vec3(1,1,1)));\n"
-	"	gl_FragColor = vec4(l,l,l,1);\n"
+	"	if (v_material < 1.0) {\n"
+	"		gl_FragColor = vec4(l,l,l,0) * 0.5 + vec4(0,0.2,0.4,1);\n"
+	"	} else {\n"
+	"		gl_FragColor = vec4(l,l,l,0) * 0.1 + vec4(0.2,0.1,0.0,1);\n"
+	"	}\n"
 	"}\n";
 
 
@@ -98,7 +102,7 @@ void render_init(struct render* render, SDL_Window* window)
 	static struct dtype_attr_spec road_specs[] = {
 		{"a_position", 3},
 		{"a_normal", 3},
-		//{"a_material", 1},
+		{"a_material", 1},
 		{NULL, -1}
 	};
 	dtype_init(
@@ -140,7 +144,7 @@ static void _road_add_vertex(struct render* render, struct vec3* position, struc
 	for (int i = 0; i < 3; i++) {
 		dtype_add_vertex_float(&render->road_dtype, normal->s[i], seq++);
 	}
-	//dtype_add_vertex_float(&render->road_dtype, material, seq++);
+	dtype_add_vertex_float(&render->road_dtype, material, seq++);
 }
 
 static void _handle_add_vertex(struct render* render, struct vec3* position, struct vec4* color)
@@ -220,12 +224,50 @@ static int render_road_node_bezier(struct render* render, struct track* track, i
 		vec3_add_scaled_inplace(&p1b, &r1, w1);
 
 		dtype_new_quad(&render->road_dtype);
-		float m = 0.8f;
+		float m = 0.5f;
 		//printf("hurr\n");
 		_road_add_vertex(render, &p0a, &n0, m);
 		_road_add_vertex(render, &p1a, &n1, m);
 		_road_add_vertex(render, &p1b, &n1, m);
 		_road_add_vertex(render, &p0b, &n0, m);
+
+		m = 1.5f;
+		dtype_new_quad(&render->road_dtype);
+
+		struct vec3 rn0, rn1;
+		vec3_copy(&rn0, &r0);
+		rn0.s[1] = 0;
+		vec3_normalize_inplace(&rn0);
+
+		vec3_copy(&rn1, &r1);
+		rn1.s[1] = 0;
+		vec3_normalize_inplace(&rn1);
+
+		struct vec3 p0az, p1az, p0bz, p1bz;
+
+		vec3_copy(&p0az, &p0a);
+		p0az.s[1] = 0;
+		vec3_copy(&p0bz, &p0b);
+		p0bz.s[1] = 0;
+		vec3_copy(&p1az, &p1a);
+		p1az.s[1] = 0;
+		vec3_copy(&p1bz, &p1b);
+		p1bz.s[1] = 0;
+
+		_road_add_vertex(render, &p0a, &rn0, m);
+		_road_add_vertex(render, &p1a, &rn1, m);
+		_road_add_vertex(render, &p1az, &rn1, m);
+		_road_add_vertex(render, &p0az, &rn0, m);
+
+		dtype_new_quad(&render->road_dtype);
+
+		vec3_scale_inplace(&rn0, -1);
+		vec3_scale_inplace(&rn1, -1);
+
+		_road_add_vertex(render, &p0b, &rn0, m);
+		_road_add_vertex(render, &p1b, &rn1, m);
+		_road_add_vertex(render, &p1bz, &rn1, m);
+		_road_add_vertex(render, &p0bz, &rn0, m);
 	}
 
 	#if 0
@@ -269,16 +311,16 @@ static void render_road_nodes(struct render* render, struct track* track)
 
 		switch (node->type) {
 			case TRACK_NONE: arghf("encountered TRACK_NONE");
-			case TRACK_STUMP: break;
 			case TRACK_BEZIER:
 				node_index = render_road_node_bezier(render, track, node_index);
 				break;
-			case TRACK_GAP: arghf("TODO implement GAP");
+			case TRACK_STUMP:
+			case TRACK_GAP:
+				arghf("TODO implement ME");
+				break;
 		}
 	}
 }
-
-
 
 static void render_road(struct render* render, struct track* track)
 {
