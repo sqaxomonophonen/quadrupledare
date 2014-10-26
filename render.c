@@ -226,10 +226,10 @@ static int render_road_node_bezier(struct render* render, struct track* track, i
 		dtype_new_quad(&render->road_dtype);
 		float m = 0.5f;
 		//printf("hurr\n");
-		_road_add_vertex(render, &p0a, &n0, m);
 		_road_add_vertex(render, &p1a, &n1, m);
-		_road_add_vertex(render, &p1b, &n1, m);
+		_road_add_vertex(render, &p0a, &n0, m);
 		_road_add_vertex(render, &p0b, &n0, m);
+		_road_add_vertex(render, &p1b, &n1, m);
 
 		m = 1.5f;
 		dtype_new_quad(&render->road_dtype);
@@ -264,10 +264,10 @@ static int render_road_node_bezier(struct render* render, struct track* track, i
 		vec3_scale_inplace(&rn0, -1);
 		vec3_scale_inplace(&rn1, -1);
 
-		_road_add_vertex(render, &p0b, &rn0, m);
 		_road_add_vertex(render, &p1b, &rn1, m);
-		_road_add_vertex(render, &p1bz, &rn1, m);
+		_road_add_vertex(render, &p0b, &rn0, m);
 		_road_add_vertex(render, &p0bz, &rn0, m);
+		_road_add_vertex(render, &p1bz, &rn1, m);
 	}
 
 	#if 0
@@ -345,8 +345,7 @@ void render_track(struct render* render, struct track* track)
 	glClearColor(0,0,0,0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//glEnable(GL_CULL_FACE);
-	glDisable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); CHKGL;
 	glEnable(GL_DEPTH_TEST);
