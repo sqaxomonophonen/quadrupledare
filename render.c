@@ -158,74 +158,41 @@ static void _handle_add_vertex(struct render* render, struct vec3* position, str
 	}
 }
 
-static int render_road_node_bezier(struct render* render, struct track* track, int node_index)
+static void _calc_bezier_stuff(int i, int N, struct track_point* tps, struct vec3* pa, struct vec3* pb, struct vec3* n, struct vec3* r)
 {
-	//printf("HARR %d\n", node_index);
-	struct track_node_bezier* bz = &track_get_node(track, node_index)->bezier;
+	float t = (float)i / (float)N;
+	struct vec3 p;
+	vec3_bezier(&p, t, &tps[0].position, &tps[1].position, &tps[2].position, &tps[3].position);
+	struct vec3 d;
+	vec3_bezier_deriv(&d, t, &tps[0].position, &tps[1].position, &tps[2].position, &tps[3].position);
+	vec3_bezier(n, t, &tps[0].normal, &tps[1].normal, &tps[2].normal, &tps[3].normal);
+	vec3_cross(r, &d, n);
+	vec3_normalize_inplace(r);
+	vec3_cross(n, r, &d);
+	vec3_normalize_inplace(n);
+	float w = calc_bezier(t, tps[0].width, tps[1].width, tps[2].width, tps[3].width);
+	vec3_copy(pa, &p);
+	vec3_add_scaled_inplace(pa, r, -w);
+	vec3_copy(pb, &p);
+	vec3_add_scaled_inplace(pb, r, w);
+}
 
-	struct track_point tp[4];
-	for (int i = 0; i < 3; i++) {
-		memcpy(&tp[i], &bz->p[i], sizeof(struct track_point));
-	}
-	track_point_copy_first(track, &tp[3], bz->next);
-	//for (int i = 0; i < 4; i++) {
-		//printf("tppp %f %f %f\n", tp[i].position.s[0], tp[i].position.s[1], tp[i].position.s[2]);
-	//}
+
+static void render_road_node_bezier(struct render* render, struct track* track, struct track_node_bezier* bz)
+{
+	struct track_point tps[4];
+	if (!track_node_bezier_derive_4_track_points(track, bz, tps)) return;
 
 	int N = 50;
+
 	for (int i = 0; i < N; i++) {
-		//printf("%f %f %f\n", p0.s[0], p0.s[1], p0.s[2]);
-		float t0 = (float)i / (float)N;
-		struct vec3 p0;
-		vec3_bezier(&p0, t0, &tp[0].position, &tp[1].position, &tp[2].position, &tp[3].position);
-		#if 0
-		for (int x = 0; x < 4; x++) {
-			printf(" tp[%d] ", x);
-			for (int y = 0; y < 3; y++) {
-				printf("%f ", tp[x].position.s[y]);
-			}
-			printf("\n");
-		}
-		#endif
-		struct vec3 d0;
-		vec3_bezier_deriv(&d0, t0, &tp[0].position, &tp[1].position, &tp[2].position, &tp[3].position);
-		struct vec3 n0;
-		vec3_bezier(&n0, t0, &tp[0].normal, &tp[1].normal, &tp[2].normal, &tp[3].normal);
-		struct vec3 r0;
-		vec3_cross(&r0, &d0, &n0);
-		vec3_normalize_inplace(&r0);
-		vec3_cross(&n0, &r0, &d0);
-		vec3_normalize_inplace(&n0);
-		struct vec3 p0a, p0b;
-		float w0 = bezier(t0, tp[0].width, tp[1].width, tp[2].width, tp[3].width);
-		vec3_copy(&p0a, &p0);
-		vec3_add_scaled_inplace(&p0a, &r0, -w0);
-		vec3_copy(&p0b, &p0);
-		vec3_add_scaled_inplace(&p0b, &r0, w0);
-
-
-		float t1 = (float)(i+1) / (float)N;
-		struct vec3 p1;
-		vec3_bezier(&p1, t1, &tp[0].position, &tp[1].position, &tp[2].position, &tp[3].position);
-		struct vec3 d1;
-		vec3_bezier_deriv(&d1, t1, &tp[0].position, &tp[1].position, &tp[2].position, &tp[3].position);
-		struct vec3 n1;
-		vec3_bezier(&n1, t1, &tp[0].normal, &tp[1].normal, &tp[2].normal, &tp[3].normal);
-		struct vec3 r1;
-		vec3_cross(&r1, &d1, &n1);
-		vec3_normalize_inplace(&r1);
-		vec3_cross(&n1, &r1, &d1);
-		vec3_normalize_inplace(&n1);
-		struct vec3 p1a, p1b;
-		float w1 = bezier(t1, tp[0].width, tp[1].width, tp[2].width, tp[3].width);
-		vec3_copy(&p1a, &p1);
-		vec3_add_scaled_inplace(&p1a, &r1, -w1);
-		vec3_copy(&p1b, &p1);
-		vec3_add_scaled_inplace(&p1b, &r1, w1);
+		struct vec3 p0a, p0b, n0, r0;
+		_calc_bezier_stuff(i, N, tps, &p0a, &p0b, &n0, &r0);
+		struct vec3 p1a, p1b, r1, n1;
+		_calc_bezier_stuff(i+1, N, tps, &p1a, &p1b, &n1, &r1);
 
 		dtype_new_quad(&render->road_dtype);
 		float m = 0.5f;
-		//printf("hurr\n");
 		_road_add_vertex(render, &p1a, &n1, m);
 		_road_add_vertex(render, &p0a, &n0, m);
 		_road_add_vertex(render, &p0b, &n0, m);
@@ -269,54 +236,17 @@ static int render_road_node_bezier(struct render* render, struct track* track, i
 		_road_add_vertex(render, &p0bz, &rn0, m);
 		_road_add_vertex(render, &p1bz, &rn1, m);
 	}
-
-	#if 0
-	{
-	int n = 10;
-	for (int y = -n; y < n; y++) {
-		for (int x = -n; x < n; x++) {
-			if ((x^y)&1) continue;
-			dtype_new_quad(&render->road_dtype);
-
-			float s = 10;
-			float dx = -s * (float)x*2;
-			float dy = -s * (float)y*2;
-			float z = -5;
-			struct vec3 ps[4] = {
-				{{ s+dx,z,-s+dy}},
-				{{-s+dx,z,-s+dy}},
-				{{-s+dx,z, s+dy}},
-				{{ s+dx,z, s+dy}},
-			};
-			struct vec3 normal = {{0,0,0.5}};
-			for (int i = 0; i < 4; i++) {
-				_road_add_vertex(render, &ps[i], &normal, 1.0f);
-			}
-		}
-	}
-	}
-	#endif
-
-	return bz->next;
 }
 
 static void render_road_nodes(struct render* render, struct track* track)
 {
-	int node_index = 0;
-	for (;;) {
-		struct track_node* node = track_get_node(track, node_index);
-
-		if (node->frame_tag == render->frame) return;
-		node->frame_tag = render->frame;
-
+	for (int i = 0; i < track->node_count; i++) {
+		struct track_node* node = track_get_node(track, i);
 		switch (node->type) {
-			case TRACK_NONE: arghf("encountered TRACK_NONE");
 			case TRACK_BEZIER:
-				node_index = render_road_node_bezier(render, track, node_index);
+				render_road_node_bezier(render, track, &node->bezier);
 				break;
-			case TRACK_STUMP:
-			case TRACK_GAP:
-				arghf("TODO implement ME");
+			case TRACK_DELETED: arghf("encountered TRACK_DELETED");
 				break;
 		}
 	}
@@ -474,69 +404,40 @@ void render_track_position_handles(struct render* render, struct track* track)
 	float secondary_radius = 0.03;
 	float line_width = 0.003;
 
+	struct track_point tps[4];
+
 	for (int i = 0; i < track->node_count; i++) {
 		struct track_node* node = track_get_node(track, i);
 		int j;
-		switch (track_get_node(track, i)->type) {
+		switch (node->type) {
 			case TRACK_BEZIER:
+				if (!track_node_bezier_derive_4_track_points(track, &node->bezier, tps)) continue;
 				for (j = 0; j < 3; j++) {
 					render_circle(
 						render,
-						&node->bezier.p[j].position,
+						&tps[j].position,
 						j == 0 ? primary_radius : secondary_radius,
 						j == 0 ? &primary_color : &secondary_color
 					);
 				}
 				render_line(
 					render,
-					&node->bezier.p[0].position,
-					&node->bezier.p[1].position,
+					&tps[0].position,
+					&tps[1].position,
 					line_width,
 					&line_color
 				);
 				render_line(
 					render,
-					&track_point_get_first(track_get_node(track, node->bezier.next))->position,
-					&node->bezier.p[2].position,
+					&tps[3].position,
+					&tps[2].position,
 					line_width,
 					&line_color
 				);
 				break;
-			case TRACK_STUMP:
-				render_circle(
-					render,
-					&node->stump.p.position,
-					primary_radius,
-					&primary_color
-				);
-				break;
-			case TRACK_GAP:
-				render_circle(
-					render,
-					&node->gap.p.position,
-					primary_radius,
-					&primary_color
-				);
-				break;
-			case TRACK_NONE:
+			case TRACK_DELETED:
 				arghf("unexpected TRACK_NONE");
 		}
-
-		/*
-		dtype_new_triangle(&render->handle_dtype);
-
-		struct vec3 p;
-		vec3_copy(&p, &node->bezier.p[0].position);
-		_handle_add_vertex(render, &p, &color);
-
-		struct vec3 a = {{0,1,0}};
-		vec3_add_inplace(&p, &a);
-		_handle_add_vertex(render, &p, &color);
-
-		struct vec3 b = {{1,0,0}};
-		vec3_add_inplace(&p, &b);
-		_handle_add_vertex(render, &p, &color);
-		*/
 	}
 
 	dtype_end(&render->handle_dtype);

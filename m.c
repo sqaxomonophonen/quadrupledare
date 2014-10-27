@@ -3,7 +3,7 @@
 #include "a.h"
 #include "m.h"
 
-float bezier(float t, float a, float b, float c, float d)
+float calc_bezier(float t, float a, float b, float c, float d)
 {
 	float t2 = t*t;
 	float t3 = t*t*t;
@@ -13,7 +13,7 @@ float bezier(float t, float a, float b, float c, float d)
 	return a*t3i + 3*b*t2i*t + 3*c*ti*t2 + d*t3;
 }
 
-float bezier_deriv(float t, float a, float b, float c, float d)
+float calc_bezier_deriv(float t, float a, float b, float c, float d)
 {
 	a = 3*(b-a);
 	b = 3*(c-b);
@@ -54,6 +54,13 @@ void vec3_add_scaled_inplace(struct vec3* dst, struct vec3* src, float scalar)
 {
 	for (int i = 0; i < 3; i++) {
 		dst->s[i] += src->s[i] * scalar;
+	}
+}
+
+void vec3_add(struct vec3* dst, struct vec3* a, struct vec3* b)
+{
+	for (int i = 0; i < 3; i++) {
+		dst->s[i] = a->s[i] + b->s[i];
 	}
 }
 
@@ -106,14 +113,14 @@ void vec3_normalize_inplace(struct vec3* dst)
 void vec3_bezier(struct vec3* dst, float t, struct vec3* a, struct vec3* b, struct vec3* c, struct vec3* d)
 {
 	for (int i = 0; i < 3; i++) {
-		dst->s[i] = bezier(t, a->s[i], b->s[i], c->s[i], d->s[i]);
+		dst->s[i] = calc_bezier(t, a->s[i], b->s[i], c->s[i], d->s[i]);
 	}
 }
 
 void vec3_bezier_deriv(struct vec3* dst, float t, struct vec3* a, struct vec3* b, struct vec3* c, struct vec3* d)
 {
 	for (int i = 0; i < 3; i++) {
-		dst->s[i] = bezier_deriv(t, a->s[i], b->s[i], c->s[i], d->s[i]);
+		dst->s[i] = calc_bezier_deriv(t, a->s[i], b->s[i], c->s[i], d->s[i]);
 	}
 }
 

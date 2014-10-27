@@ -15,38 +15,22 @@ struct track_point {
 	int flags; // mode for normal? e.g. "assume up", or "rotate" or "full 3d control". also, tangent linkage? (links ctrl points). mouse over / selected too?
 };
 
-struct track_node_stump {
-	int32_t prev;
-	struct track_point p;
-};
-
 struct track_node_bezier {
 	int32_t prev;
 	int32_t next;
-	struct track_point p[3];
-};
-
-struct track_node_gap {
-	int32_t prev;
-	int32_t next;
-	struct track_point p;
+	struct track_point p[2];
+	uint32_t flags;
 };
 
 struct track_node {
 	enum track_node_type {
-		TRACK_NONE = 0,
-		TRACK_STUMP,
-		TRACK_BEZIER,
-		TRACK_GAP
+		TRACK_DELETED = 0,
+		TRACK_BEZIER
 	} type;
 
 	union {
-		struct track_node_stump stump;
 		struct track_node_bezier bezier;
-		struct track_node_gap gap;
 	};
-
-	int frame_tag;
 };
 
 #define TRACK_NODE_MAX (1<<14)
@@ -57,12 +41,9 @@ struct track {
 };
 
 struct track_node* track_get_node(struct track* track, int index);
-//void track_get_points(struct track* track, struct track_point* points, int node_index);
-
 
 void track_init_demo(struct track* track);
 
+int track_node_bezier_derive_4_track_points(struct track* track, struct track_node_bezier* bezier, struct track_point* points);
 
-struct track_point* track_point_get_first(struct track_node* node);
-void track_point_copy_first(struct track* track, struct track_point* p0, int index);
 #endif/*TRACK_H*/

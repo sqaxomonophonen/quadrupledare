@@ -8,8 +8,8 @@
 #define DEG2RAD(x) (x/180.0f*M_PI)
 
 
-float bezier(float t, float a, float b, float c, float d);
-float bezier_deriv(float t, float a, float b, float c, float d);
+float calc_bezier(float t, float a, float b, float c, float d);
+float calc_bezier_deriv(float t, float a, float b, float c, float d);
 
 struct vec3 {
 	float s[3];
@@ -20,6 +20,7 @@ void vec3_copy(struct vec3* dst, struct vec3* src);
 void vec3_scale(struct vec3* dst, struct vec3* src, float scalar);
 void vec3_add_inplace(struct vec3* dst, struct vec3* src);
 void vec3_add_scaled_inplace(struct vec3* dst, struct vec3* src, float scalar);
+void vec3_add(struct vec3* dst, struct vec3* a, struct vec3* b);
 void vec3_sub(struct vec3* dst, struct vec3* a, struct vec3* b);
 void vec3_scale_inplace(struct vec3* dst, float scalar);
 void vec3_lerp(struct vec3* dst, struct vec3* a, struct vec3* b, float t);
