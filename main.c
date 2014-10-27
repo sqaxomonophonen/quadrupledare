@@ -8,6 +8,7 @@
 #include "render.h"
 #include "track.h"
 #include "editor.h"
+#include "game.h"
 
 void glew_init()
 {
@@ -55,11 +56,6 @@ int main(int argc, char** argv)
 
 	glew_init();
 
-	#if 0
-	SDL_DisplayMode mode;
-	SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &mode);
-	float dt = 1.0f / (float)mode.refresh_rate;
-	#endif
 
 	struct render render;
 	render_init(&render, window);
@@ -67,13 +63,19 @@ int main(int argc, char** argv)
 	struct track track;
 	track_init_demo(&track);
 
+	#if 0
 	struct editor editor;
 	editor_init(&editor);
-
-	//struct sim* sim = sim_new();
-	//sim_step(sim, dt);
-
 	editor_run(&editor, &render, &track);
+	#else
+	SDL_DisplayMode mode;
+	SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &mode);
+	float dt = 1.0f / (float)mode.refresh_rate;
+	struct game game;
+	game_init(&game, dt, &track);
+
+	game_run(&game, &render);
+	#endif
 
 	SDL_DestroyWindow(window);
 	SDL_GL_DeleteContext(glctx);

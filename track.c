@@ -16,7 +16,7 @@ void track_init_demo(struct track* track)
 	track->node_count = 4;
 
 	struct vec3 normal = {{0,1,0}};
-	struct vec3 normal2 = {{1,1,1}};
+	struct vec3 normal2 = {{-0.3,1,-0.3}};
 
 	struct vec3 ps[4] = {
 		{{-10,5,-10}},
@@ -35,7 +35,7 @@ void track_init_demo(struct track* track)
 		vec3_copy(&bezier->p[0].position, &ps[i]);
 
 		bezier->p[0].width = 3;
-		vec3_copy(&bezier->p[0].normal, i == 0 ? &normal2 : &normal);
+		vec3_copy(&bezier->p[0].normal, i == 3 ? &normal2 : &normal);
 
 		bezier->p[1].width = 3;
 		vec3_copy(&bezier->p[1].normal, &normal);
@@ -87,5 +87,53 @@ int track_node_bezier_derive_4_track_points(struct track* track, struct track_no
 	memcpy(&points[3], &bz_next->p[0], sizeof(struct track_point));
 
 	return 1;
+}
+
+static void _bezier_stuff(struct track_point* tps, int i, int N, struct vec3* pa, struct vec3* pb, struct vec3* n, struct vec3* r)
+{
+	float t = (float)i / (float)N;
+	struct vec3 p;
+	vec3_bezier(&p, t, &tps[0].position, &tps[1].position, &tps[2].position, &tps[3].position);
+	struct vec3 d;
+	vec3_bezier_deriv(&d, t, &tps[0].position, &tps[1].position, &tps[2].position, &tps[3].position);
+	vec3_bezier(n, t, &tps[0].normal, &tps[1].normal, &tps[2].normal, &tps[3].normal);
+	vec3_cross(r, &d, n);
+	vec3_normalize_inplace(r);
+	vec3_cross(n, r, &d);
+	vec3_normalize_inplace(n);
+	float w = calc_bezier(t, tps[0].width, tps[1].width, tps[2].width, tps[3].width);
+	vec3_copy(pa, &p);
+	vec3_add_scaled_inplace(pa, r, -w);
+	vec3_copy(pb, &p);
+	vec3_add_scaled_inplace(pb, r, w);
+}
+
+void track_points_construct_block(struct track_point* tps, int i, int N, struct vec3* points, struct vec3* normals)
+{
+	AN(points);
+
+	struct vec3 n0, r0;
+	_bezier_stuff(tps, i, N, &points[0], &points[1], &n0, &r0);
+
+	struct vec3 n1, r1;
+	_bezier_stuff(tps, i+1, N, &points[3], &points[2], &n1, &r1);
+
+	for (int i = 0; i < 4; i++) {
+		vec3_copy(&points[i+4], &points[i]);
+		points[i+4].s[1] = 0;
+	}
+
+	if (normals != NULL) {
+		vec3_copy(&normals[0], &n0);
+		vec3_copy(&normals[1], &n1);
+
+		vec3_copy(&normals[2], &r0);
+		vec3_copy(&normals[3], &r1);
+		for (int i = 0; i < 2; i++) {
+			normals[2+i].s[1] = 0;
+			vec3_normalize_inplace(&normals[2+i]);
+			vec3_scale(&normals[4+i], &normals[2+i], -1);
+		}
+	}
 }
 

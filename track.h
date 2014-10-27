@@ -46,4 +46,6 @@ void track_init_demo(struct track* track);
 
 int track_node_bezier_derive_4_track_points(struct track* track, struct track_node_bezier* bezier, struct track_point* points);
 
+void track_points_construct_block(struct track_point* tps, int i, int N, struct vec3* points, struct vec3* normals);
+
 #endif/*TRACK_H*/

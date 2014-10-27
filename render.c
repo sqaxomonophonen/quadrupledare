@@ -158,26 +158,6 @@ static void _handle_add_vertex(struct render* render, struct vec3* position, str
 	}
 }
 
-static void _calc_bezier_stuff(int i, int N, struct track_point* tps, struct vec3* pa, struct vec3* pb, struct vec3* n, struct vec3* r)
-{
-	float t = (float)i / (float)N;
-	struct vec3 p;
-	vec3_bezier(&p, t, &tps[0].position, &tps[1].position, &tps[2].position, &tps[3].position);
-	struct vec3 d;
-	vec3_bezier_deriv(&d, t, &tps[0].position, &tps[1].position, &tps[2].position, &tps[3].position);
-	vec3_bezier(n, t, &tps[0].normal, &tps[1].normal, &tps[2].normal, &tps[3].normal);
-	vec3_cross(r, &d, n);
-	vec3_normalize_inplace(r);
-	vec3_cross(n, r, &d);
-	vec3_normalize_inplace(n);
-	float w = calc_bezier(t, tps[0].width, tps[1].width, tps[2].width, tps[3].width);
-	vec3_copy(pa, &p);
-	vec3_add_scaled_inplace(pa, r, -w);
-	vec3_copy(pb, &p);
-	vec3_add_scaled_inplace(pb, r, w);
-}
-
-
 static void render_road_node_bezier(struct render* render, struct track* track, struct track_node_bezier* bz)
 {
 	struct track_point tps[4];
@@ -186,55 +166,29 @@ static void render_road_node_bezier(struct render* render, struct track* track, 
 	int N = 50;
 
 	for (int i = 0; i < N; i++) {
-		struct vec3 p0a, p0b, n0, r0;
-		_calc_bezier_stuff(i, N, tps, &p0a, &p0b, &n0, &r0);
-		struct vec3 p1a, p1b, r1, n1;
-		_calc_bezier_stuff(i+1, N, tps, &p1a, &p1b, &n1, &r1);
+
+		struct vec3 points[8];
+		struct vec3 normals[6];
+		track_points_construct_block(tps, i, N, points, normals);
 
 		dtype_new_quad(&render->road_dtype);
-		float m = 0.5f;
-		_road_add_vertex(render, &p1a, &n1, m);
-		_road_add_vertex(render, &p0a, &n0, m);
-		_road_add_vertex(render, &p0b, &n0, m);
-		_road_add_vertex(render, &p1b, &n1, m);
+		float mflat = 0.5f;
+		for (int i = 0; i < 4; i++) {
+			_road_add_vertex(render, &points[i], &normals[i < 2 ? 0 : 1], mflat);
+		}
 
-		m = 1.5f;
+		float mside = 1.5f;
 		dtype_new_quad(&render->road_dtype);
-
-		struct vec3 rn0, rn1;
-		vec3_copy(&rn0, &r0);
-		rn0.s[1] = 0;
-		vec3_normalize_inplace(&rn0);
-
-		vec3_copy(&rn1, &r1);
-		rn1.s[1] = 0;
-		vec3_normalize_inplace(&rn1);
-
-		struct vec3 p0az, p1az, p0bz, p1bz;
-
-		vec3_copy(&p0az, &p0a);
-		p0az.s[1] = 0;
-		vec3_copy(&p0bz, &p0b);
-		p0bz.s[1] = 0;
-		vec3_copy(&p1az, &p1a);
-		p1az.s[1] = 0;
-		vec3_copy(&p1bz, &p1b);
-		p1bz.s[1] = 0;
-
-		_road_add_vertex(render, &p0a, &rn0, m);
-		_road_add_vertex(render, &p1a, &rn1, m);
-		_road_add_vertex(render, &p1az, &rn1, m);
-		_road_add_vertex(render, &p0az, &rn0, m);
+		_road_add_vertex(render, &points[0], &normals[2], mside);
+		_road_add_vertex(render, &points[3], &normals[3], mside);
+		_road_add_vertex(render, &points[7], &normals[3], mside);
+		_road_add_vertex(render, &points[4], &normals[2], mside);
 
 		dtype_new_quad(&render->road_dtype);
-
-		vec3_scale_inplace(&rn0, -1);
-		vec3_scale_inplace(&rn1, -1);
-
-		_road_add_vertex(render, &p1b, &rn1, m);
-		_road_add_vertex(render, &p0b, &rn0, m);
-		_road_add_vertex(render, &p0bz, &rn0, m);
-		_road_add_vertex(render, &p1bz, &rn1, m);
+		_road_add_vertex(render, &points[2], &normals[5], mside);
+		_road_add_vertex(render, &points[1], &normals[4], mside);
+		_road_add_vertex(render, &points[5], &normals[4], mside);
+		_road_add_vertex(render, &points[6], &normals[5], mside);
 	}
 }
 

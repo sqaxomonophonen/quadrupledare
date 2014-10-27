@@ -33,11 +33,14 @@ track.o: track.c track.h
 editor.o: editor.c editor.h
 	$(CC) $(CFLAGS) -c editor.c
 
+game.o: game.c game.h
+	$(CC) $(CFLAGS) -c game.c
+
 main.o: main.c
 	$(CC) $(CFLAGS) -c main.c
 
-main: main.o sim.o a.o m.o d.o shader.o render.o track.o editor.o
-	$(CCCP) main.o sim.o a.o m.o d.o shader.o render.o track.o editor.o -o main $(LINK)
+main: main.o sim.o a.o m.o d.o shader.o render.o track.o editor.o game.o
+	$(CCCP) main.o sim.o a.o m.o d.o shader.o render.o track.o editor.o game.o -o main $(LINK)
 
 clean:
 	rm -f *.o main
