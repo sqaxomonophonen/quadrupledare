@@ -13,12 +13,18 @@ struct sim_vehicle {
 
 	btRigidBody* make_chassis(btDynamicsWorld* world)
 	{
-		btVector3 extents(0.3, 0.1, 1);
+		//btVector3 extents(0.3, 0.1, 1);
+		btVector3 extents(0.01, 0.01, 0.01);
 		btCollisionShape* shape = new btBoxShape(extents);
+
+		float mass = 800;
+		btVector3 local_inertia(0,0,0);
+		shape->calculateLocalInertia(mass, local_inertia);
+
 		btTransform tx;
 		tx.setIdentity();
 		btDefaultMotionState* mstate = new btDefaultMotionState(tx);
-		btRigidBody::btRigidBodyConstructionInfo cinfo(0, mstate, shape);
+		btRigidBody::btRigidBodyConstructionInfo cinfo(mass, mstate, shape, local_inertia);
 		btRigidBody* body = new btRigidBody(cinfo);
 		body->setContactProcessingThreshold(1e6); // ???
 		world->addRigidBody(body);
