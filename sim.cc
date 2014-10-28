@@ -67,7 +67,7 @@ struct sim {
 			collisionConfiguration
 		);
 
-		world->setGravity(btVector3(0,0,-10));
+		world->setGravity(btVector3(0,1,0));
 	}
 
 	struct sim_vehicle* get_vehicle(int i)
@@ -91,9 +91,16 @@ struct sim {
 
 	void add_block(struct vec3* points, int n_points)
 	{
-		btCollisionShape* shape = new btConvexHullShape(&points[0].s[0], n_points);
+		btConvexHullShape* shape = new btConvexHullShape;
+		for (int i = 0; i < n_points; i++) {
+			struct vec3* p = &points[i];
+			btVector3 btp(p->s[0], p->s[1], p->s[2]);
+			shape->addPoint(btp);
+		}
+
 		btTransform tx;
 		tx.setIdentity();
+
 		btDefaultMotionState* mstate = new btDefaultMotionState(tx);
 		btRigidBody::btRigidBodyConstructionInfo cinfo(0, mstate, shape);
 		btRigidBody* body = new btRigidBody(cinfo);
