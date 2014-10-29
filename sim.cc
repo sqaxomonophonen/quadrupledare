@@ -13,8 +13,7 @@ struct sim_vehicle {
 
 	btRigidBody* make_chassis(btDynamicsWorld* world)
 	{
-		//btVector3 extents(0.3, 0.1, 1);
-		btVector3 extents(0.01, 0.01, 0.01);
+		btVector3 extents(0.3, 0.1, 1);
 		btCollisionShape* shape = new btBoxShape(extents);
 
 		float mass = 800;
@@ -23,6 +22,7 @@ struct sim_vehicle {
 
 		btTransform tx;
 		tx.setIdentity();
+		tx.setOrigin(btVector3(10,20,10)); // XXX see track_init_demo()
 		btDefaultMotionState* mstate = new btDefaultMotionState(tx);
 		btRigidBody::btRigidBodyConstructionInfo cinfo(mass, mstate, shape, local_inertia);
 		btRigidBody* body = new btRigidBody(cinfo);
@@ -67,7 +67,7 @@ struct sim {
 			collisionConfiguration
 		);
 
-		world->setGravity(btVector3(0,1,0));
+		world->setGravity(btVector3(0,-10,0));
 	}
 
 	struct sim_vehicle* get_vehicle(int i)
@@ -149,7 +149,7 @@ void sim_vehicle_get_tx(struct sim_vehicle* vehicle, struct mat44* tx)
 	btTransform transform;
 	body->getMotionState()->getWorldTransform(transform);
 
-	btVector3 pos = transform.getOrigin();
+	btVector3 pos = -transform.getOrigin() - btVector3(0,2,0);
 
 	mat44_set_identity(tx);
 	struct vec3 d;

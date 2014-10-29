@@ -37,9 +37,16 @@ void game_init(struct game* game, float dt, struct track* track)
 
 void game_run(struct game* game, struct render* render)
 {
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+
+	float yaw = 0;
+	float pitch = 0;
+
 	int exiting = 0;
 	while (!exiting) {
 		SDL_Event e;
+		int mdx = 0;
+		int mdy = 0;
 		while (SDL_PollEvent(&e)) {
 			if (e.type == SDL_QUIT) exiting = 1;
 			if (e.type == SDL_KEYDOWN) {
@@ -47,12 +54,30 @@ void game_run(struct game* game, struct render* render)
 					exiting = 1;
 				}
 			}
+			if (e.type == SDL_MOUSEMOTION) {
+				mdx += e.motion.xrel;
+				mdy += e.motion.yrel;
+			}
+		}
+
+		{
+			float sensitivity = 0.1f;
+			yaw += (float)mdx * sensitivity;
+			pitch += (float)mdy * sensitivity;
+			float pitch_limit = 90;
+			if (pitch > pitch_limit) pitch = pitch_limit;
+			if (pitch < -pitch_limit) pitch = -pitch_limit;
 		}
 
 		sim_step(game->sim, game->dt);
 
 		struct sim_vehicle* vehicle = sim_get_vehicle(game->sim, 0);
-		sim_vehicle_get_tx(vehicle, &render->view);
+		mat44_set_identity(&render->view);
+		mat44_rotate_x(&render->view, pitch);
+		mat44_rotate_y(&render->view, yaw);
+		struct mat44 vtx;
+		sim_vehicle_get_tx(vehicle, &vtx);
+		mat44_multiply_inplace(&render->view, &vtx);
 
 		render_track(render, game->track);
 		render_flip(render);
