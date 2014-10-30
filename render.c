@@ -398,6 +398,34 @@ void render_track_position_handles(struct render* render, struct track* track)
 
 }
 
+
+void render_a_wheel(struct render* render, struct mat44* model)
+{
+	glDisable(GL_CULL_FACE);
+
+	dtype_begin(&render->road_dtype);
+
+	dtype_set_matrix(&render->road_dtype, "u_projection", &render->projection);
+	dtype_set_matrix(&render->road_dtype, "u_view", &render->view);
+
+	dtype_new_quad(&render->road_dtype);
+	struct vec3 n = {{0,1,0}};
+	float s = 0.1f;
+	struct vec3 p[4] = {
+		{{0,0,0}},
+		{{0,s,0}},
+		{{s,s,0}},
+		{{s,0,0}},
+	};
+	for (int i = 0; i < 4; i++) {
+		struct vec3 ptx;
+		vec3_apply_mat44(&ptx, &p[i], model);
+		_road_add_vertex(render, &ptx, &n, 2.5);
+	}
+
+	dtype_end(&render->road_dtype);
+}
+
 void render_flip(struct render* render)
 {
 	SDL_GL_SwapWindow(render->window);

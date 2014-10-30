@@ -1,6 +1,8 @@
 #ifndef M_H
 #define M_H
 
+#include "a.h"
+
 #ifndef M_PI
 #define M_PI (3.141592653589793)
 #endif
@@ -42,6 +44,22 @@ float vec4_dot(struct vec4* a, struct vec4* b);
 struct mat44 {
 	float s[16];
 };
+
+static inline int mat44_ati(int col, int row)
+{
+	ASSERT(col >= 0 && col < 4 && row >= 0 && row < 4);
+	return row + col * 4;
+}
+
+static inline float* mat44_atp(struct mat44* m, int col, int row)
+{
+	return &m->s[mat44_ati(col, row)];
+}
+
+static inline float mat44_at(struct mat44* m, int col, int row)
+{
+	return *(mat44_atp(m, col, row));
+}
 
 void mat44_dump(struct mat44* x);
 void mat44_copy(struct mat44* dst, struct mat44* src);

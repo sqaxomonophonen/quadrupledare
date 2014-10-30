@@ -39,8 +39,13 @@ void game_run(struct game* game, struct render* render)
 {
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 
-	float yaw = 0;
+	float yaw = 180;
 	float pitch = 0;
+
+	int ctrl_accel = 0;
+	int ctrl_brake = 0;
+	int ctrl_left = 0;
+	int ctrl_right = 0;
 
 	int exiting = 0;
 	while (!exiting) {
@@ -52,6 +57,32 @@ void game_run(struct game* game, struct render* render)
 			if (e.type == SDL_KEYDOWN) {
 				if (e.key.keysym.sym == SDLK_ESCAPE) {
 					exiting = 1;
+				}
+				if (e.key.keysym.sym == SDLK_w) {
+					ctrl_accel = 1;
+				}
+				if (e.key.keysym.sym == SDLK_s) {
+					ctrl_brake = 1;
+				}
+				if (e.key.keysym.sym == SDLK_a) {
+					ctrl_left = 1;
+				}
+				if (e.key.keysym.sym == SDLK_d) {
+					ctrl_right = 1;
+				}
+			}
+			if (e.type == SDL_KEYUP) {
+				if (e.key.keysym.sym == SDLK_w) {
+					ctrl_accel = 0;
+				}
+				if (e.key.keysym.sym == SDLK_s) {
+					ctrl_brake = 0;
+				}
+				if (e.key.keysym.sym == SDLK_a) {
+					ctrl_left = 0;
+				}
+				if (e.key.keysym.sym == SDLK_d) {
+					ctrl_right = 0;
 				}
 			}
 			if (e.type == SDL_MOUSEMOTION) {
@@ -69,6 +100,9 @@ void game_run(struct game* game, struct render* render)
 			if (pitch < -pitch_limit) pitch = -pitch_limit;
 		}
 
+
+		sim_vehicle_ctrl(sim_get_vehicle(game->sim, 0), ctrl_accel, ctrl_brake, ctrl_right - ctrl_left);
+
 		sim_step(game->sim, game->dt);
 
 		struct sim_vehicle* vehicle = sim_get_vehicle(game->sim, 0);
@@ -80,6 +114,14 @@ void game_run(struct game* game, struct render* render)
 		mat44_multiply_inplace(&render->view, &vtx);
 
 		render_track(render, game->track);
+
+		for (int i = 0; i < 4; i++) {
+			struct mat44 wtx;
+			sim_vehicle_get_wheel_tx(sim_get_vehicle(game->sim, 0), &wtx, i);
+			render_a_wheel(render, &wtx);
+		}
+
+
 		render_flip(render);
 	}
 

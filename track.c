@@ -16,13 +16,21 @@ void track_init_demo(struct track* track)
 	track->node_count = 4;
 
 	struct vec3 normal = {{0,1,0}};
-	struct vec3 normal2 = {{-0.3,1,-0.3}};
+	//struct vec3 normal2 = {{-0.3,1,-0.3}};
 
+	/*
 	struct vec3 ps[4] = {
 		{{-10,5,-10}},
 		{{10,4,-10}},
 		{{10,15,10}},
 		{{-10,7,10}},
+	};
+	*/
+	struct vec3 ps[4] = {
+		{{-10,13,-10}},
+		{{10,18,-10}},
+		{{10,18,10}},
+		{{-10,18,10}},
 	};
 
 	for (int i = 0; i < 4; i++) {
@@ -34,10 +42,11 @@ void track_init_demo(struct track* track)
 
 		vec3_copy(&bezier->p[0].position, &ps[i]);
 
-		bezier->p[0].width = 3;
-		vec3_copy(&bezier->p[0].normal, i == 3 ? &normal2 : &normal);
+		bezier->p[0].width = 5;
+		//vec3_copy(&bezier->p[0].normal, i == 3 ? &normal2 : &normal);
+		vec3_copy(&bezier->p[0].normal, &normal);
 
-		bezier->p[1].width = 3;
+		bezier->p[1].width = 5;
 		vec3_copy(&bezier->p[1].normal, &normal);
 	}
 

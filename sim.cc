@@ -28,6 +28,7 @@ struct sim_vehicle {
 		btRigidBody* body = new btRigidBody(cinfo);
 		body->setContactProcessingThreshold(1e6); // ???
 		world->addRigidBody(body);
+		body->setActivationState(DISABLE_DEACTIVATION);
 		return body;
 	}
 
@@ -36,7 +37,28 @@ struct sim_vehicle {
 		chassis = make_chassis(world);
 		vehicleRayraster = new btDefaultVehicleRaycaster(world);
 		raycastVehicle = new btRaycastVehicle(tuning, chassis, vehicleRayraster);
-		//raycastVehicle->getRigidBody()->applyImpulse(btVector3(10,1,1), btVector3(10,0,0));
+		world->addVehicle(raycastVehicle);
+		raycastVehicle->setCoordinateSystem(0,1,2);
+		btVector3 dir(0,-1,0);
+		btVector3 axle(-1,0,0);
+		float suspension_rest_length = 0.5;
+		float wheel_radius = 0.3;
+		for (int i = 0; i < 4; i++) {
+			bool is_front_wheel = i < 2;
+			float dside = 0.5;
+			float dx = i&1 ? dside : -dside;
+			float dfront = 1.5;
+			float h = -0.1;
+			float dz = is_front_wheel ? dfront : -dfront;
+			btVector3 point(dx, h, dz);
+			btWheelInfo& wheel = raycastVehicle->addWheel(point, dir, axle, suspension_rest_length, wheel_radius, tuning, is_front_wheel);
+			wheel.m_suspensionStiffness = 20;
+			wheel.m_wheelsDampingRelaxation = 2.3;
+			wheel.m_wheelsDampingCompression = 4.4;
+			wheel.m_frictionSlip = 1000;
+			wheel.m_rollInfluence = 0.1;
+		}
+		//raycastVehicle->getRigidBody()->applyImpulse(btVector3(-22,-2,-2), btVector3(10,0,0));
 	}
 };
 
@@ -133,12 +155,10 @@ struct sim_vehicle* sim_get_vehicle(struct sim* sim, int i)
 	return sim->get_vehicle(i);
 }
 
-static void vec3_from_btVector3(struct vec3* v, btVector3& btv)
+static void mat44_from_btTransform(struct mat44* tx, btTransform btx)
 {
-	v->s[0] = btv.getX();
-	v->s[1] = btv.getY();
-	v->s[2] = btv.getZ();
-	//vec3_dump(v);
+	mat44_set_identity(tx);
+	btx.getOpenGLMatrix(&tx->s[0]);
 }
 
 void sim_vehicle_get_tx(struct sim_vehicle* vehicle, struct mat44* tx)
@@ -149,12 +169,29 @@ void sim_vehicle_get_tx(struct sim_vehicle* vehicle, struct mat44* tx)
 	btTransform transform;
 	body->getMotionState()->getWorldTransform(transform);
 
-	btVector3 pos = -transform.getOrigin() - btVector3(0,2,0);
+	struct mat44 a;
+	mat44_from_btTransform(&a, transform);
+	mat44_inverse(tx, &a);
+}
 
-	mat44_set_identity(tx);
-	struct vec3 d;
-	vec3_from_btVector3(&d, pos);
-	mat44_translate(tx, &d);
+void sim_vehicle_get_wheel_tx(struct sim_vehicle* vehicle, struct mat44* tx, int i)
+{
+	vehicle->raycastVehicle->updateWheelTransform(i, true);
+	btWheelInfo& wheel = vehicle->raycastVehicle->getWheelInfo(i);
+	mat44_from_btTransform(tx, wheel.m_worldTransform);
+}
+
+void sim_vehicle_ctrl(struct sim_vehicle* vehicle, int accel, int brake, int steer)
+{
+	for (int w = 0; w < 4; w++) {
+		float aforce = accel ? 1000 : 0;
+		float bforce = brake ? 300 : 0;
+		vehicle->raycastVehicle->applyEngineForce(aforce, w);
+		vehicle->raycastVehicle->setBrake(bforce, w);
+	}
+	for (int w = 0; w < 2; w++) {
+		vehicle->raycastVehicle->setSteeringValue((float)steer * -0.4f, w);
+	}
 }
 
 } /* extern "C" */

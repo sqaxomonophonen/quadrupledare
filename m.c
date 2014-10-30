@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <math.h>
-#include "a.h"
 #include "m.h"
 
 float calc_bezier(float t, float a, float b, float c, float d)
@@ -136,22 +135,6 @@ float vec4_dot(struct vec4* a, struct vec4* b)
 		r += a->s[i] * b->s[i];
 	}
 	return r;
-}
-
-static inline int mat44_ati(int col, int row)
-{
-	ASSERT(col >= 0 && col < 4 && row >= 0 && row < 4);
-	return row + col * 4;
-}
-
-static inline float* mat44_atp(struct mat44* m, int col, int row)
-{
-	return &m->s[mat44_ati(col, row)];
-}
-
-static inline float mat44_at(struct mat44* m, int col, int row)
-{
-	return *(mat44_atp(m, col, row));
 }
 
 static inline void mat44_get_row(struct mat44* m, struct vec4* result, int row)
