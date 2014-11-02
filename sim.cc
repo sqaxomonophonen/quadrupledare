@@ -5,6 +5,7 @@
 
 #include "sim.h"
 
+#define WORLD_MAX (1000)
 #define WHEEL_RADIUS (0.3)
 
 struct sim_vehicle {
@@ -19,7 +20,7 @@ struct sim_vehicle {
 		chassis_extents = btVector3(0.3, 0.1, 1);
 		btCollisionShape* shape = new btBoxShape(chassis_extents);
 
-		float mass = 800;
+		float mass = 600;
 		btVector3 local_inertia(0,0,0);
 		shape->calculateLocalInertia(mass, local_inertia);
 
@@ -51,7 +52,8 @@ struct sim_vehicle {
 			float dside = 0.5;
 			float dx = i&1 ? dside : -dside;
 			float dfront = 1.6;
-			float h = -0.1;
+			//float h = -0.1;
+			float h = 0.2;
 			float dz = is_front_wheel ? dfront : -dfront;
 			btVector3 point(dx, h, dz);
 			btWheelInfo& wheel = raycastVehicle->addWheel(point, dir, axle, suspension_rest_length, WHEEL_RADIUS, tuning, is_front_wheel);
@@ -79,8 +81,8 @@ struct sim {
 		collisionConfiguration = new btDefaultCollisionConfiguration();
 		dispatcher = new btCollisionDispatcher(collisionConfiguration);
 
-		btVector3 worldMin(-1000, -1000, -1000);
-		btVector3 worldMax(1000, 1000, 1000);
+		btVector3 worldMin(-WORLD_MAX, -WORLD_MAX, -WORLD_MAX);
+		btVector3 worldMax(WORLD_MAX, WORLD_MAX, WORLD_MAX);
 		overlappingPairCache = new btAxisSweep3(worldMin, worldMax);
 
 		constraintSolver = new btSequentialImpulseConstraintSolver();
@@ -131,17 +133,19 @@ struct sim {
 		btDefaultMotionState* mstate = new btDefaultMotionState(tx);
 		btRigidBody::btRigidBodyConstructionInfo cinfo(0, mstate, shape);
 		btRigidBody* body = new btRigidBody(cinfo);
-		body->setContactProcessingThreshold(1e6); // ???
+		body->setContactProcessingThreshold(1e3); // ???
 		world->addRigidBody(body);
 	}
 
 	void add_ground()
 	{
-		btVector3 extents(100, 1, 100);
+		btVector3 extents(WORLD_MAX, 1, WORLD_MAX);
 		btBoxShape* shape = new btBoxShape(extents);
 
 		btTransform tx;
 		tx.setIdentity();
+		btVector3 translation(0,-1,0);
+		tx.setOrigin(translation);
 		btDefaultMotionState* mstate = new btDefaultMotionState(tx);
 		btRigidBody::btRigidBodyConstructionInfo cinfo(0, mstate, shape);
 		btRigidBody* body = new btRigidBody(cinfo);
@@ -223,13 +227,21 @@ void sim_vehicle_render(struct render* render, struct sim_vehicle* vehicle)
 void sim_vehicle_ctrl(struct sim_vehicle* vehicle, int accel, int brake, int steer)
 {
 	for (int w = 0; w < 4; w++) {
+		/*
 		float aforce = accel ? 1000 : 0;
 		float bforce = brake ? 300 : 0;
 		vehicle->raycastVehicle->applyEngineForce(aforce, w);
 		vehicle->raycastVehicle->setBrake(bforce, w);
+		*/
 	}
+	float aforce = accel ? 1000 : 0;
+	float bforce = brake ? 100 : 0;
 	for (int w = 0; w < 2; w++) {
+		vehicle->raycastVehicle->applyEngineForce(aforce, w);
 		vehicle->raycastVehicle->setSteeringValue((float)steer * -0.4f, w);
+
+		vehicle->raycastVehicle->setBrake(bforce, w+2);
+
 	}
 	//printf("%f\n", vehicle->raycastVehicle->getCurrentSpeedKmHour());
 }

@@ -24,7 +24,7 @@ d.o: d.c d.h
 shader.o: shader.c shader.h
 	$(CC) $(CFLAGS) -c shader.c
 
-render.o: render.c render.h
+render.o: render.c render.h magic.h
 	$(CC) $(CFLAGS) -c render.c
 
 track.o: track.c track.h
@@ -33,7 +33,7 @@ track.o: track.c track.h
 editor.o: editor.c editor.h
 	$(CC) $(CFLAGS) -c editor.c
 
-game.o: game.c game.h
+game.o: game.c game.h magic.h
 	$(CC) $(CFLAGS) -c game.c
 
 main.o: main.c

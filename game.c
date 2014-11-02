@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "magic.h"
 #include "game.h"
 
 static void add_bezier_node_to_sim(struct game* game, struct track* track, struct track_node_bezier* bezier)
@@ -7,11 +8,38 @@ static void add_bezier_node_to_sim(struct game* game, struct track* track, struc
 	struct track_point tps[4];
 	if (!track_node_bezier_derive_4_track_points(track, bezier, tps)) return;
 
-	int N = 50;
+	int N = BEZIER_SUBDIV;
 	for (int i = 0; i < N; i++) {
 		struct vec3 points[8];
 		track_points_construct_block(tps, i, N, points, NULL);
+
+		#if 1
 		sim_add_block(game->sim, points, 8);
+		#else
+
+		struct vec3 tp[6];
+
+		{
+			int tpi = 0;
+			vec3_copy(&tp[tpi++], &points[0]);
+			vec3_copy(&tp[tpi++], &points[1]);
+			vec3_copy(&tp[tpi++], &points[2]);
+			vec3_copy(&tp[tpi++], &points[4]);
+			vec3_copy(&tp[tpi++], &points[5]);
+			vec3_copy(&tp[tpi++], &points[6]);
+			sim_add_block(game->sim, tp, 6);
+		}
+		{
+			int tpi = 0;
+			vec3_copy(&tp[tpi++], &points[0]);
+			vec3_copy(&tp[tpi++], &points[2]);
+			vec3_copy(&tp[tpi++], &points[3]);
+			vec3_copy(&tp[tpi++], &points[4]);
+			vec3_copy(&tp[tpi++], &points[6]);
+			vec3_copy(&tp[tpi++], &points[7]);
+			sim_add_block(game->sim, tp, 6);
+		}
+		#endif
 	}
 }
 

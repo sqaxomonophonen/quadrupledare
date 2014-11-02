@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 
 #include "render.h"
+#include "magic.h"
 #include "a.h"
 #include "m.h"
 
@@ -236,7 +237,7 @@ static void render_road_node_bezier(struct render* render, struct track* track, 
 	struct track_point tps[4];
 	if (!track_node_bezier_derive_4_track_points(track, bz, tps)) return;
 
-	int N = 50;
+	int N = BEZIER_SUBDIV;
 
 	for (int i = 0; i < N; i++) {
 
