@@ -43,7 +43,7 @@ static const char* road_shader_fragment_src =
 	"}\n";
 
 
-static const char* handle_shader_vertex_src =
+static const char* color_shader_vertex_src =
 	"#version 130\n"
 	"uniform mat4 u_projection;\n"
 	"uniform mat4 u_view;\n"
@@ -59,7 +59,7 @@ static const char* handle_shader_vertex_src =
 	"	gl_Position = u_projection * u_view * vec4(a_position, 1);\n"
 	"}\n";
 
-static const char* handle_shader_fragment_src =
+static const char* color_shader_fragment_src =
 	"#version 130\n"
 	"\n"
 	"varying vec4 v_color;\n"
@@ -70,6 +70,37 @@ static const char* handle_shader_fragment_src =
 	"}\n";
 
 
+static const char* horizon_vertex_shader_src =
+	"#version 130\n"
+	"uniform mat4 u_projection;\n"
+	"uniform mat4 u_view;\n"
+	"\n"
+	"attribute vec3 a_position;\n"
+	"\n"
+	"varying vec3 v_position;\n"
+	"\n"
+	"void main()\n"
+	"{\n"
+	"	v_position = a_position;\n"
+	"	gl_Position = u_projection * u_view * vec4(a_position,1);\n"
+	"}\n";
+
+static const char* horizon_fragment_shader_src =
+	"#version 130\n"
+	"\n"
+	"varying vec3 v_position;\n"
+	"\n"
+	"void main(void)\n"
+	"{\n"
+	"	int x = int(v_position[0]/8+1000);\n"
+	"	int y = int(v_position[2]/8+1000);\n"
+	"	if (((x+y)&1)==0) {\n"
+	"		gl_FragColor = vec4(0,0.2,0,1);\n"
+	"	} else {\n"
+	"		gl_FragColor = vec4(0,0.1,0,1);\n"
+	"	}\n"
+	"}\n";
+
 
 static float render_get_fovy(struct render* render)
 {
@@ -77,6 +108,44 @@ static float render_get_fovy(struct render* render)
 	return 65;
 }
 
+
+static void render_init_horizon(struct render_horizon* h)
+{
+	{
+		glGenBuffers(1, &h->vertex_buffer); CHKGL;
+		GLuint type = GL_ARRAY_BUFFER;
+		glBindBuffer(type, h->vertex_buffer); CHKGL;
+		size_t sz = sizeof(float)*12;
+		h->vertex_data = malloc(sz);
+		AN(h->vertex_data);
+		float big = 1000;
+		for (int i = 0; i < 4; i++) {
+			h->vertex_data[i*3+0] = (i&1)?big:-big;
+			h->vertex_data[i*3+1] = 0;
+			h->vertex_data[i*3+2] = (i&2)?big:-big;
+		}
+		glBufferData(type, sz, h->vertex_data, GL_STATIC_DRAW); CHKGL;
+	}
+
+	{
+		glGenBuffers(1, &h->index_buffer); CHKGL;
+		GLuint type = GL_ELEMENT_ARRAY_BUFFER;
+		glBindBuffer(type, h->index_buffer); CHKGL;
+		size_t sz = sizeof(int32_t)*4;
+		h->index_data = malloc(sz);
+		AN(h->index_data);
+		h->index_data[0] = 1;
+		h->index_data[1] = 0;
+		h->index_data[2] = 2;
+		h->index_data[3] = 3;
+		glBufferData(type, sz, h->index_data, GL_STATIC_DRAW); CHKGL;
+	}
+
+	{
+		shader_init(&h->shader, horizon_vertex_shader_src, horizon_fragment_shader_src);
+		h->apos = glGetAttribLocation(h->shader.program, "a_position"); CHKGL;
+	}
+}
 
 void render_init(struct render* render, SDL_Window* window)
 {
@@ -114,18 +183,20 @@ void render_init(struct render* render, SDL_Window* window)
 	);
 
 	// handle dtype
-	static struct dtype_attr_spec handle_specs[] = {
+	static struct dtype_attr_spec color_specs[] = {
 		{"a_position", 3},
 		{"a_color", 4},
 		{NULL, -1}
 	};
 	dtype_init(
-		&render->handle_dtype,
+		&render->color_dtype,
 		&render->dbuf,
-		handle_shader_vertex_src,
-		handle_shader_fragment_src,
-		handle_specs
+		color_shader_vertex_src,
+		color_shader_fragment_src,
+		color_specs
 	);
+
+	render_init_horizon(&render->horizon);
 }
 
 static void gl_viewport_from_sdl_window(SDL_Window* window)
@@ -147,14 +218,16 @@ static void _road_add_vertex(struct render* render, struct vec3* position, struc
 	dtype_add_vertex_float(&render->road_dtype, material, seq++);
 }
 
-static void _handle_add_vertex(struct render* render, struct vec3* position, struct vec4* color)
+static void _color_add_vertex(struct render* render, struct vec3* position, struct vec4* color)
 {
 	int seq = 0;
 	for (int i = 0; i < 3; i++) {
-		dtype_add_vertex_float(&render->handle_dtype, position->s[i], seq++);
+		dtype_add_vertex_float(&render->color_dtype, position->s[i], seq++);
 	}
 	for (int i = 0; i < 4; i++) {
-		dtype_add_vertex_float(&render->handle_dtype, color->s[i], seq++);
+		float value = color->s[i];
+		if (i == 3) value *= render->color_alpha_multiplier;
+		dtype_add_vertex_float(&render->color_dtype, value, seq++);
 	}
 }
 
@@ -218,12 +291,8 @@ static void render_road(struct render* render, struct track* track)
 	dtype_end(&render->road_dtype);
 }
 
-void render_track(struct render* render, struct track* track)
+void render_clear(struct render* render)
 {
-	AN(render);
-
-	render->frame++;
-
 	gl_viewport_from_sdl_window(render->window);
 
 	glClearColor(0,0,0,0);
@@ -233,6 +302,37 @@ void render_track(struct render* render, struct track* track)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); CHKGL;
 	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+}
+
+void render_horizon(struct render* render)
+{
+	struct render_horizon* h = &render->horizon;
+	shader_use(&h->shader);
+	glEnableVertexAttribArray(h->apos); CHKGL;
+
+	{
+		GLint location = glGetUniformLocation(h->shader.program, "u_projection");
+		glUniformMatrix4fv(location, 1, GL_FALSE, render->projection.s);
+	}
+	{
+		GLint location = glGetUniformLocation(h->shader.program, "u_view");
+		glUniformMatrix4fv(location, 1, GL_FALSE, render->view.s);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, h->vertex_buffer); CHKGL;
+	glVertexAttribPointer(h->apos, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0); CHKGL;
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, h->index_buffer); CHKGL;
+	glDrawElements(GL_QUADS, 4, GL_UNSIGNED_INT, NULL); CHKGL;
+	glDisableVertexAttribArray(h->apos); CHKGL;
+	glUseProgram(0); CHKGL;
+}
+
+void render_track(struct render* render, struct track* track)
+{
+	AN(render);
+
+	render->frame++;
 
 	// transform
 	/*
@@ -266,7 +366,7 @@ static int _screen_bases(struct render* render, struct vec3* bx, struct vec3* by
 
 static void _circle_point(int i, int N, float radius, float* x, float* y)
 {
-	float phi = (float)(i%N) / (float)N * M_PI * 2.0f;
+	float phi = I2RAD((float)(i%N) / (float)N);
 	*x = cosf(phi) * radius;
 	*y = sinf(phi) * radius;
 }
@@ -279,7 +379,7 @@ static void render_circle(struct render* render, struct vec3* pos, float radius,
 	}
 	int N = 8;
 	for (int i = 0; i < N; i++) {
-		dtype_new_quad(&render->handle_dtype);
+		dtype_new_quad(&render->color_dtype);
 		float x, y;
 
 		for (int j = 0; j < 4; j++) {
@@ -292,7 +392,7 @@ static void render_circle(struct render* render, struct vec3* pos, float radius,
 			vec3_copy(&p, pos);
 			vec3_add_scaled_inplace(&p, &bx, x);
 			vec3_add_scaled_inplace(&p, &by, y);
-			_handle_add_vertex(render, &p, color);
+			_color_add_vertex(render, &p, color);
 		}
 	}
 }
@@ -322,7 +422,7 @@ static void render_line(struct render* render, struct vec3* p0, struct vec3* p1,
 	nx /= ns;
 	ny /= ns;
 
-	dtype_new_quad(&render->handle_dtype);
+	dtype_new_quad(&render->color_dtype);
 
 	for (int i = 0; i < 4; i++) {
 		float w = -width;
@@ -334,7 +434,7 @@ static void render_line(struct render* render, struct vec3* p0, struct vec3* p1,
 		vec3_copy(&qp, i < 2 ? p0 : p1);
 		vec3_add_scaled_inplace(&qp, bx, nx * w);
 		vec3_add_scaled_inplace(&qp, by, ny * w);
-		_handle_add_vertex(render, &qp, color);
+		_color_add_vertex(render, &qp, color);
 	}
 }
 
@@ -346,10 +446,10 @@ void render_track_position_handles(struct render* render, struct track* track)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); CHKGL;
 
-	dtype_begin(&render->handle_dtype);
+	dtype_begin(&render->color_dtype);
 
-	dtype_set_matrix(&render->handle_dtype, "u_projection", &render->projection);
-	dtype_set_matrix(&render->handle_dtype, "u_view", &render->view);
+	dtype_set_matrix(&render->color_dtype, "u_projection", &render->projection);
+	dtype_set_matrix(&render->color_dtype, "u_view", &render->view);
 
 	struct vec4 primary_color = {{1, 1, 0, 1}};
 	struct vec4 secondary_color = {{0.5, 0.6, 1, 1}};
@@ -394,12 +494,97 @@ void render_track_position_handles(struct render* render, struct track* track)
 		}
 	}
 
-	dtype_end(&render->handle_dtype);
-
+	dtype_end(&render->color_dtype);
 }
 
+void render_begin_color(struct render* render, int depth_mode)
+{
+	//glClear(GL_DEPTH_BUFFER_BIT);
+	if (!depth_mode) {
+		glDepthFunc(GL_LESS);
+		render->color_alpha_multiplier = 1.0;
+	} else {
+		glDepthFunc(GL_GEQUAL);
+		render->color_alpha_multiplier = 0.2;
+	}
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); CHKGL;
 
-void render_a_wheel(struct render* render, struct mat44* model)
+	dtype_begin(&render->color_dtype);
+
+	dtype_set_matrix(&render->color_dtype, "u_projection", &render->projection);
+	dtype_set_matrix(&render->color_dtype, "u_view", &render->view);
+}
+
+void render_end_color(struct render* render)
+{
+	dtype_end(&render->color_dtype);
+}
+
+void render_draw_vector(struct render* render, struct vec3* o, struct vec3* v, struct vec4* colorp)
+{
+	struct vec3 a, b;
+	vec3_complete_basis(v, &a, &b);
+
+	float radius = 0.01f;
+	int N = 8;
+
+	struct vec4 color = {{1,1,0,1}};
+	if (colorp != NULL) vec4_copy(&color, colorp);
+
+	for (int i = 0; i < N; i++) {
+
+		float t1 = 0.9;
+
+		dtype_new_quad(&render->color_dtype);
+		for (int j = 0; j < 4; j++) {
+			struct vec3 p;
+			vec3_copy(&p, o);
+			float x, y;
+			_circle_point(i + (j == 1 || j == 2 ? 1 : 0), N, radius, &x, &y);
+			vec3_add_scaled_inplace(&p, &a, x);
+			vec3_add_scaled_inplace(&p, &b, y);
+			if (j >= 2) {
+				vec3_add_scaled_inplace(&p, v, t1);
+			}
+			_color_add_vertex(render, &p, &color);
+		}
+
+		{
+			dtype_new_triangle(&render->color_dtype);
+			struct vec3 p;
+			float x, y;
+
+			{
+				vec3_copy(&p, o);
+				_circle_point(i, N, radius * 2, &x, &y);
+				vec3_add_scaled_inplace(&p, &a, x);
+				vec3_add_scaled_inplace(&p, &b, y);
+				vec3_add_scaled_inplace(&p, v, 0.9);
+				_color_add_vertex(render, &p, &color);
+			}
+
+			{
+				vec3_copy(&p, o);
+				_circle_point(i+1, N, radius * 2, &x, &y);
+				vec3_add_scaled_inplace(&p, &a, x);
+				vec3_add_scaled_inplace(&p, &b, y);
+				vec3_add_scaled_inplace(&p, v, t1);
+				_color_add_vertex(render, &p, &color);
+			}
+
+			{
+				vec3_copy(&p, o);
+				vec3_add_inplace(&p, v);
+				_color_add_vertex(render, &p, &color);
+			}
+		}
+	}
+}
+
+void render_box(struct render* render, struct mat44* model, struct vec3* extents)
 {
 	glDisable(GL_CULL_FACE);
 
@@ -408,19 +593,79 @@ void render_a_wheel(struct render* render, struct mat44* model)
 	dtype_set_matrix(&render->road_dtype, "u_projection", &render->projection);
 	dtype_set_matrix(&render->road_dtype, "u_view", &render->view);
 
-	dtype_new_quad(&render->road_dtype);
-	struct vec3 n = {{0,1,0}};
-	float s = 0.1f;
-	struct vec3 p[4] = {
-		{{0,0,0}},
-		{{0,s,0}},
-		{{s,s,0}},
-		{{s,0,0}},
-	};
-	for (int i = 0; i < 4; i++) {
-		struct vec3 ptx;
-		vec3_apply_mat44(&ptx, &p[i], model);
-		_road_add_vertex(render, &ptx, &n, 2.5);
+	for (int i = 0; i < 3; i++) {
+		int ap = 1<<i;
+		for (int j = 0; j < 2; j++) {
+			struct vec3 ps[4];
+			int psi = 0;
+			for (int k = 0; k < 8; k++) {
+				if ((k&ap) == (ap*j)) {
+					struct vec3 p = {{
+						extents->s[0] * (k&1 ? 1 : -1),
+						extents->s[1] * (k&2 ? 1 : -1),
+						extents->s[2] * (k&4 ? 1 : -1),
+					}};
+					struct vec3 ptx;
+					vec3_apply_mat44(&ptx, &p, model);
+					vec3_copy(&ps[psi++], &ptx);
+				}
+			}
+			ASSERT(psi == 4);
+			dtype_new_quad(&render->road_dtype);
+			float mat = 1.5;
+			struct vec3 n = {{
+				i == 0 ? (j == 0 ? 1 : -1) : 0,
+				i == 1 ? (j == 0 ? 1 : -1) : 0,
+				i == 2 ? (j == 0 ? 1 : -1) : 0
+			}};
+			struct vec3 ntx;
+			vec3_apply_rotation_mat44(&ntx, &n, model);
+			_road_add_vertex(render, &ps[0], &ntx, mat);
+			_road_add_vertex(render, &ps[1], &ntx, mat);
+			_road_add_vertex(render, &ps[3], &ntx, mat);
+			_road_add_vertex(render, &ps[2], &ntx, mat);
+		}
+	}
+	dtype_end(&render->road_dtype);
+}
+
+void render_a_wheel(struct render* render, struct mat44* model, float radius, float width)
+{
+	glDisable(GL_CULL_FACE);
+
+	dtype_begin(&render->road_dtype);
+
+	dtype_set_matrix(&render->road_dtype, "u_projection", &render->projection);
+	dtype_set_matrix(&render->road_dtype, "u_view", &render->view);
+
+	int N = 32;
+
+	for (int i = 0; i < N; i++) {
+
+		struct vec3 ps[4];
+
+		for (int j = 0; j < 4; j++) {
+			float x, y;
+			_circle_point(i + (j == 1 || j == 2 ? 1 : 0), N, radius, &x, &y);
+			struct vec3 p;
+			vec3_zero(&p);
+			struct vec3 a = {{0,1,0}};
+			struct vec3 b = {{0,0,1}};
+			struct vec3 c = {{width/2,0,0}};
+			vec3_add_scaled_inplace(&p, &a, x);
+			vec3_add_scaled_inplace(&p, &b, y);
+			vec3_add_scaled_inplace(&p, &c, j < 2 ? -1 : 1);
+			vec3_apply_mat44(&ps[j], &p, model);
+		}
+
+		float mat = (i&3) ? 2.5 : 0.5;
+		struct vec3 n;
+		vec3_calculate_normal_from_3_points(&n, ps);
+
+		dtype_new_quad(&render->road_dtype);
+		for (int j = 0; j < 4; j++) {
+			_road_add_vertex(render, &ps[j], &n, mat);
+		}
 	}
 
 	dtype_end(&render->road_dtype);

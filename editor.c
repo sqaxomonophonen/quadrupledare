@@ -104,36 +104,15 @@ int editor_run(struct editor* editor, struct render* render, struct track* track
 			SDL_SetRelativeMouseMode(SDL_TRUE);
 		}
 
-		float speed = 0.5f;
-		if (ctrl_forward || ctrl_backward) {
-			float sgn = 0;
-			if (ctrl_forward) sgn += 1.0f;
-			if (ctrl_backward) sgn -= 1.0f;
-			float yaw_s = sinf(DEG2RAD(editor->yaw));
-			float yaw_c = cosf(DEG2RAD(editor->yaw));
-			float pitch_s = sinf(DEG2RAD(editor->pitch));
-			float pitch_c = cosf(DEG2RAD(editor->pitch));
-			struct vec3 forward = {{
-				yaw_s * pitch_c,
-				-pitch_s,
-				-yaw_c * pitch_c
-			}};
-			vec3_add_scaled_inplace(&editor->position, &forward, sgn * speed);
+		{
+			float speed = 0.5f;
+			float forward = (float)(ctrl_forward - ctrl_backward) * speed;
+			float right = (float)(ctrl_right - ctrl_left) * speed;
+			struct vec3 movement;
+			vec3_move(&movement, editor->yaw, editor->pitch, forward, right);
+			vec3_add_inplace(&editor->position, &movement);
 		}
 
-		if (ctrl_left || ctrl_right) {
-			float sgn = 0;
-			if (ctrl_right) sgn += 1.0f;
-			if (ctrl_left) sgn -= 1.0f;
-			float yaw_s = sinf(DEG2RAD(editor->yaw));
-			float yaw_c = cosf(DEG2RAD(editor->yaw));
-			struct vec3 right = {{
-				yaw_c,
-				0,
-				yaw_s,
-			}};
-			vec3_add_scaled_inplace(&editor->position, &right, sgn * speed);
-		}
 
 		mat44_set_identity(&render->view);
 		mat44_rotate_x(&render->view, editor->pitch);
@@ -142,6 +121,8 @@ int editor_run(struct editor* editor, struct render* render, struct track* track
 		vec3_scale(&translation, &editor->position, -1);
 		mat44_translate(&render->view, &translation);
 
+		render_clear(render);
+		render_horizon(render);
 		render_track(render, track);
 		render_track_position_handles(render, track);
 

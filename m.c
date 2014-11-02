@@ -28,6 +28,11 @@ void vec3_dump(struct vec3* x)
 	printf("(%.3f  %.3f  %.3f)\n", x->s[0], x->s[1], x->s[2]);
 }
 
+void vec3_zero(struct vec3* x)
+{
+	for (int i = 0; i < 3; i++) x->s[i] = 0;
+}
+
 void vec3_copy(struct vec3* dst, struct vec3* src)
 {
 	for (int i = 0; i < 3; i++) {
@@ -107,6 +112,30 @@ void vec3_normalize_inplace(struct vec3* dst)
 	vec3_scale_inplace(dst, 1 / sqrtf(vec3_dot(dst, dst)));
 }
 
+void vec3_move(struct vec3* move, float yaw, float pitch, float forward, float right)
+{
+	vec3_zero(move);
+
+	float yaw_s = sinf(DEG2RAD(yaw));
+	float yaw_c = cosf(DEG2RAD(yaw));
+
+	float pitch_s = sinf(DEG2RAD(pitch));
+	float pitch_c = cosf(DEG2RAD(pitch));
+
+	struct vec3 fv = {{
+		yaw_s * pitch_c,
+		-pitch_s,
+		-yaw_c * pitch_c
+	}};
+	vec3_add_scaled_inplace(move, &fv, forward);
+
+	struct vec3 rv = {{
+		yaw_c,
+		0,
+		yaw_s,
+	}};
+	vec3_add_scaled_inplace(move, &rv, right);
+}
 
 
 void vec3_bezier(struct vec3* dst, float t, struct vec3* a, struct vec3* b, struct vec3* c, struct vec3* d)
@@ -123,9 +152,40 @@ void vec3_bezier_deriv(struct vec3* dst, float t, struct vec3* a, struct vec3* b
 	}
 }
 
+void vec3_complete_basis(struct vec3* normal, struct vec3* a, struct vec3* b)
+{
+	struct vec3 q;
+	if (normal->s[0] > normal->s[1] && normal->s[0] > normal->s[2]) {
+		struct vec3 q0 = {{0,1,0}};
+		vec3_copy(&q, &q0);
+	} else {
+		struct vec3 q1 = {{1,0,0}};
+		vec3_copy(&q, &q1);
+	}
+
+	vec3_cross(a, normal, &q);
+	vec3_cross(b, normal, a);
+	vec3_normalize_inplace(a);
+	vec3_normalize_inplace(b);
+}
+
+void vec3_calculate_normal_from_3_points(struct vec3* normal, struct vec3* points3)
+{
+	struct vec3 a,b;
+	vec3_sub(&a, &points3[1], &points3[0]);
+	vec3_sub(&b, &points3[2], &points3[0]);
+	vec3_cross(normal, &a, &b);
+	vec3_normalize_inplace(normal);
+}
+
 void vec4_dump(struct vec4* x)
 {
 	printf("(%.4f  %.4f  %.4f  %.4f)\n", x->s[0], x->s[1], x->s[2], x->s[3]);
+}
+
+void vec4_copy(struct vec4* dst, struct vec4* src)
+{
+	for (int i = 0; i < 4; i++) dst->s[i] = src->s[i];
 }
 
 float vec4_dot(struct vec4* a, struct vec4* b)
@@ -424,6 +484,18 @@ void vec3_apply_mat44(struct vec3* dst, struct vec3* src, struct mat44* m)
 		result.s[i] = vec4_dot(&src4, &o);
 	}
 	vec3_from_vec4(dst, &result);
+}
+
+void vec3_apply_rotation_mat44(struct vec3* dst, struct vec3* src, struct mat44* m)
+{
+	for (int i = 0; i < 3; i++) {
+		struct vec4 o4;
+		mat44_get_row(m, &o4, i);
+		o4.s[3] = 1;
+		struct vec3 o3;
+		vec3_from_vec4(&o3, &o4);
+		dst->s[i] = vec3_dot(src, &o3);
+	}
 }
 
 void vec4_apply_mat44_to_vec3(struct vec4* dst, struct vec3* src, struct mat44* m)
