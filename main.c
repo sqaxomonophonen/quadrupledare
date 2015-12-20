@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); // XXX use framebuffer instead? this be some fragile sheeit
 
-	int bitmask = SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_OPENGL;
+	int bitmask = SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
 	SDL_Window* window = SDL_CreateWindow(
 			"quadruple dare",
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
