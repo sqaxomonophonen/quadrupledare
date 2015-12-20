@@ -370,14 +370,14 @@ static void mat44_minors(struct mat44* dst, struct mat44* src)
 				{
 					float s = 1;
 					for (int i = 0; i < 3; i++) {
-						s *= _mat44_sub33_at(src, col, row, (i+x+6)%3, i);
+						s *= _mat44_sub33_at(src, col, row, (i+x)%3, i);
 					}
 					det += s;
 				}
 				{
 					float t = 1;
 					for (int i = 0; i < 3; i++) {
-						t *= _mat44_sub33_at(src, col, row, (-i+x+6)%3, i);
+						t *= _mat44_sub33_at(src, col, row, (-i+x+3)%3, i);
 					}
 					det -= t;
 				}
